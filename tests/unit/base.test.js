@@ -213,6 +213,28 @@ test('_prepPools without oldPools', (t) => {
   t.is(result.length, 3, 'Should return processed pools array')
 })
 
+test('_transformPoolConfig throws ERR_POOL_CONFIG_INVALID for missing poolUrls', async (t) => {
+  const miner = new BaseMiner()
+  await t.exception(() => miner._transformPoolConfig({}), { message: 'ERR_POOL_CONFIG_INVALID' })
+  await t.exception(() => miner._transformPoolConfig({ poolUrls: 'not-an-array' }), { message: 'ERR_POOL_CONFIG_INVALID' })
+  await t.exception(() => miner._transformPoolConfig(null), { message: 'ERR_POOL_CONFIG_INVALID' })
+})
+
+test('_transformPoolConfig maps poolUrls to the expected format', (t) => {
+  const miner = new BaseMiner()
+  const result = miner._transformPoolConfig({
+    poolUrls: [
+      { url: 'stratum+tcp://pool1.com:4444', workerName: 'w1', workerPassword: 'p1' },
+      { url: 'stratum+tcp://pool2.com:4444', workerName: 'w2' }
+    ]
+  })
+  t.is(result.length, 2)
+  t.is(result[0].url, 'stratum+tcp://pool1.com:4444')
+  t.is(result[0].worker_name, 'w1')
+  t.is(result[0].worker_password, 'p1')
+  t.is(result[1].worker_password, '.', 'defaults password to dot when missing')
+})
+
 test('setupPools success', async (t) => {
   const miner = new BaseMiner()
   miner.conf = { pools: [{ url: 'stratum+tcp://pool1.com:4444', worker_name: 'worker1' }] }
@@ -227,6 +249,19 @@ test('setupPools success', async (t) => {
 
   t.is(JSON.stringify(result), JSON.stringify({ success: true }), 'Should return success result')
   t.ok(setPoolsCalled, 'Should call setPools')
+})
+
+test('setupPools with params.config calls _transformPoolConfig and sets poolConfig id', async (t) => {
+  const miner = new BaseMiner()
+  const poolUrls = [{ url: 'stratum+tcp://pool1.com:4444', workerName: 'w1' }]
+  let usedPools = null
+  miner.setPools = async (pools) => { usedPools = pools }
+
+  const result = await miner.setupPools({ config: { id: 'cfg-42', poolUrls } })
+
+  t.is(JSON.stringify(result), JSON.stringify({ success: true }))
+  t.is(miner.poolConfig, 'cfg-42')
+  t.is(usedPools[0].url, 'stratum+tcp://pool1.com:4444')
 })
 
 test('setupPools failure', async (t) => {
