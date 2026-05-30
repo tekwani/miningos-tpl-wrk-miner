@@ -16,9 +16,14 @@ function setPowerModeExecutor (value) {
   return async ({ dev }) => { return await dev.setPowerMode(value) }
 }
 
+function updateFirmwareExecutor (firmware) {
+  return async ({ dev }) => { return await dev.updateFirmware(firmware) }
+}
+
 module.exports = {
   getSnapExecutor,
   rebootExecutor,
   setLEDExecutor,
-  setPowerModeExecutor
+  setPowerModeExecutor,
+  updateFirmwareExecutor
 }

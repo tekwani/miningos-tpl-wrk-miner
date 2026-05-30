@@ -1,5 +1,7 @@
 'use strict'
 
+const fs = require('fs')
+const path = require('path')
 const async = require('async')
 const WrkRack = require('@tetherto/miningos-tpl-wrk-thing/workers/rack.thing.wrk')
 const { getRandomString } = require('./lib/utils')
@@ -11,7 +13,8 @@ const {
   STAT_SHARES_1M,
   STAT_SHARES_30M,
   STAT_STARTUP_STATUS,
-  STAT_5M
+  STAT_5M,
+  FIRMWARE_RPC
 } = require('./lib/constants')
 const { saveStats } = require('./lib/wrk-fun-stats')
 const lWrkFunLogs = require('@tetherto/miningos-tpl-wrk-thing/workers/lib/wrk-fun-logs')
@@ -61,9 +64,16 @@ class WrkMinerRack extends WrkRack {
           ['setupPools', 1],
           ['registerThing', 1],
           ['updateThing', 1],
-          ['forgetThings', 1]
+          ['forgetThings', 1],
+          ['updateFirmware', 1]
         ])
 
+        this.firmwares = this.db.sub('firmwares')
+        FIRMWARE_RPC.forEach(method => {
+          this.net_r0.rpcServer.respond(method, async (req) => {
+            return await this.net_r0.handleReply(method, req)
+          })
+        })
         next()
       }
     ], cb)
@@ -365,6 +375,34 @@ class WrkMinerRack extends WrkRack {
         this.debugError(`ERR_STAT_30M_SHARES_SAVE ${container}`, e)
       }
     }
+  }
+
+  _firmwareFileExists (file) {
+    if (!file) return false
+    return fs.existsSync(path.join(this.conf.thing?.dirFirmwares || 'firmwares', file))
+  }
+
+  async listFirmwares () {
+    const data = await this.firmwares.get('firmwares_meta')
+    const all = data ? JSON.parse(data.value) : []
+    return all.filter((fw) => this._firmwareFileExists(fw.file))
+  }
+
+  async registerFirmware (data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('ERR_FIRMWARE_INVALID')
+    }
+    const { name, file } = data
+    if (!name) throw new Error('ERR_FIRMWARE_NAME_INVALID')
+    if (!file) throw new Error('ERR_FIRMWARE_FILE_INVALID')
+    if (!this._firmwareFileExists(file)) {
+      throw new Error('ERR_FIRMWARE_FILE_NOT_FOUND')
+    }
+
+    const firmwares = await this.listFirmwares()
+    firmwares.push({ name, file, id: getRandomString(15) })
+    await this.firmwares.put('firmwares_meta', JSON.stringify(firmwares))
+    return 1
   }
 }
 

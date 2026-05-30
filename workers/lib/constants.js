@@ -26,6 +26,8 @@ const MINER_TAG = 't-miner'
 const STAT_STARTUP_STATUS = 'stat-startup'
 const STAT_5M = 'stat-5m'
 
+const FIRMWARE_RPC = ['listFirmwares', 'registerFirmware']
+
 module.exports = {
   MAINTENANCE,
   POWER_MODE,
@@ -36,5 +38,6 @@ module.exports = {
   STAT_30M,
   MINER_TAG,
   STAT_STARTUP_STATUS,
-  STAT_5M
+  STAT_5M,
+  FIRMWARE_RPC
 }

@@ -28,9 +28,10 @@
   "scripts": {
     "lint": "standard",
     "lint:fix": "standard --fix",
-    "test": "npm run lint && npm run test:unit && npm run test:spec",
+    "test": "npm run lint && npm run test:unit && npm run test:integration && npm run test:spec",
     "test:spec": "brittle ./tests/**/*.spec.js",
     "test:unit": "brittle tests/unit/*.js",
+    "test:integration": "brittle tests/integration/*.js",
     "test:coverage": "brittle --coverage tests/{,**/}*.test.js"
   },
   "dependencies": {
