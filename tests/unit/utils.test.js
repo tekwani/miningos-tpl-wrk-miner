@@ -48,7 +48,7 @@ test('hasErrorAndPositiveHashrate with error status and zero hashrate', (t) => {
       }
     }
   }
-  t.not(hasErrorAndPositiveHashrate(entry), 'Should return false for error status with zero hashrate')
+  t.absent(hasErrorAndPositiveHashrate(entry), 'Should return false for error status with zero hashrate')
 })
 
 test('hasErrorAndPositiveHashrate with mining status and positive hashrate', (t) => {
@@ -62,17 +62,17 @@ test('hasErrorAndPositiveHashrate with mining status and positive hashrate', (t)
       }
     }
   }
-  t.not(hasErrorAndPositiveHashrate(entry), 'Should return false for mining status')
+  t.absent(hasErrorAndPositiveHashrate(entry), 'Should return false for mining status')
 })
 
 test('hasErrorAndPositiveHashrate with missing stats', (t) => {
   const entry = { last: { snap: {} } }
-  t.not(hasErrorAndPositiveHashrate(entry), 'Should return false for missing stats')
+  t.absent(hasErrorAndPositiveHashrate(entry), 'Should return false for missing stats')
 })
 
 test('hasErrorAndPositiveHashrate with missing entry', (t) => {
-  t.not(hasErrorAndPositiveHashrate(null), 'Should return false for null entry')
-  t.not(hasErrorAndPositiveHashrate(undefined), 'Should return false for undefined entry')
+  t.absent(hasErrorAndPositiveHashrate(null), 'Should return false for null entry')
+  t.absent(hasErrorAndPositiveHashrate(undefined), 'Should return false for undefined entry')
 })
 
 test('sumPoolsShares with valid pools', (t) => {

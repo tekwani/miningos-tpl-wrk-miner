@@ -80,7 +80,7 @@ test('checkSamePools with different lengths', (t) => {
     { url: 'stratum+tcp://pool2.com:4444', username: 'worker2' }
   ]
 
-  t.not(miner.checkSamePools(newPools, oldPools), 'Should return false for different lengths')
+  t.absent(miner.checkSamePools(newPools, oldPools), 'Should return false for different lengths')
 })
 
 test('checkSamePools with different URLs', (t) => {
@@ -92,7 +92,7 @@ test('checkSamePools with different URLs', (t) => {
     { url: 'stratum+tcp://different-pool.com:4444', username: 'worker1' }
   ]
 
-  t.not(miner.checkSamePools(newPools, oldPools), 'Should return false for different URLs')
+  t.absent(miner.checkSamePools(newPools, oldPools), 'Should return false for different URLs')
 })
 
 test('checkSamePools with different worker names', (t) => {
@@ -104,7 +104,7 @@ test('checkSamePools with different worker names', (t) => {
     { url: 'stratum+tcp://pool1.com:4444', username: 'different-worker' }
   ]
 
-  t.not(miner.checkSamePools(newPools, oldPools), 'Should return false for different worker names')
+  t.absent(miner.checkSamePools(newPools, oldPools), 'Should return false for different worker names')
 })
 
 test('preProcessPoolData with valid pools and appendId true', (t) => {
@@ -257,12 +257,33 @@ test('setupPools with params.config calls _transformPoolConfig and sets poolConf
   let usedPools = null
   miner.setPools = async (pools) => { usedPools = pools }
 
-  const result = await miner.setupPools({ config: { id: 'cfg-42', poolUrls } })
+  const result = await miner.setupPools({ config: { id: 'cfg-42', status: 'approved', poolUrls } })
 
   t.is(JSON.stringify(result), JSON.stringify({ success: true }))
   t.is(miner.poolConfig, 'cfg-42')
   t.is(usedPools[0].url, 'stratum+tcp://pool1.com:4444')
   t.alike(miner.poolUrls, ['stratum+tcp://pool1.com:4444'])
+})
+
+test('setupPools refuses an inline config that is not an approved profile', async (t) => {
+  const miner = new BaseMiner()
+  miner.opts = { id: 'miner-001' }
+  const poolUrls = [{ url: 'stratum+tcp://evil.example.com:3333', workerName: 'attacker' }]
+  let setPoolsCalled = false
+  miner.setPools = async () => { setPoolsCalled = true }
+
+  for (const config of [
+    { poolUrls },
+    { id: 'cfg-42', poolUrls },
+    { id: 'cfg-42', status: 'pending', poolUrls },
+    { status: 'approved', poolUrls }
+  ]) {
+    const result = await miner.setupPools({ config })
+    t.alike(result, { success: false, error_msg: 'ERR_POOL_CONFIG_NOT_APPROVED' }, JSON.stringify(config))
+  }
+
+  t.absent(setPoolsCalled, 'Should never write pools to the device')
+  t.absent(miner.poolConfig, 'Should not record a refused config')
 })
 
 test('setupPools propagates an in-band driver rejection', async (t) => {
@@ -272,7 +293,7 @@ test('setupPools propagates an in-band driver rejection', async (t) => {
 
   miner.setPools = async () => ({ success: false, error: 'set_miner_conf.cgi 401' })
 
-  const result = await miner.setupPools({ config: { id: 'cfg-42', poolUrls } })
+  const result = await miner.setupPools({ config: { id: 'cfg-42', status: 'approved', poolUrls } })
 
   t.alike(result, { success: false, error_msg: 'set_miner_conf.cgi 401' }, 'Should report the driver failure')
   t.absent(miner.poolConfig, 'Should not record a config the device refused')
@@ -284,7 +305,7 @@ test('setupPools clears a stale poolConfig when no config is supplied', async (t
   miner.conf = { pools: [{ url: 'stratum+tcp://pool1.com:4444', worker_name: 'worker1' }] }
   miner.setPools = async () => ({ success: true })
 
-  await miner.setupPools({ config: { id: 'cfg-42', poolUrls: [{ url: 'u', workerName: 'w' }] } })
+  await miner.setupPools({ config: { id: 'cfg-42', status: 'approved', poolUrls: [{ url: 'u', workerName: 'w' }] } })
   t.is(miner.poolConfig, 'cfg-42', 'Should record the assigned config')
 
   await miner.setupPools()
@@ -297,7 +318,7 @@ test('setupPools falls back to a generic error when the driver gives none', asyn
   miner.opts = { id: 'miner-001' }
   miner.setPools = async () => ({ success: false })
 
-  const result = await miner.setupPools({ config: { id: 'cfg-42', poolUrls: [{ url: 'u', workerName: 'w' }] } })
+  const result = await miner.setupPools({ config: { id: 'cfg-42', status: 'approved', poolUrls: [{ url: 'u', workerName: 'w' }] } })
 
   t.alike(result, { success: false, error_msg: 'ERR_SETUP_POOLS_FAILED' })
 })
@@ -307,7 +328,7 @@ test('setupPools accepts the whatsminer error_msg spelling', async (t) => {
   miner.opts = { id: 'miner-001' }
   miner.setPools = async () => ({ success: false, error_msg: 'update_pools code 14' })
 
-  const result = await miner.setupPools({ config: { id: 'cfg-42', poolUrls: [{ url: 'u', workerName: 'w' }] } })
+  const result = await miner.setupPools({ config: { id: 'cfg-42', status: 'approved', poolUrls: [{ url: 'u', workerName: 'w' }] } })
 
   t.alike(result, { success: false, error_msg: 'update_pools code 14' })
 })
@@ -317,7 +338,7 @@ test('setupPools treats a skipped no-op write as success', async (t) => {
   miner.opts = { id: 'miner-001' }
   miner.setPools = async () => ({ success: true, message: 'Pools are same, skipping' })
 
-  const result = await miner.setupPools({ config: { id: 'cfg-42', poolUrls: [{ url: 'u', workerName: 'w' }] } })
+  const result = await miner.setupPools({ config: { id: 'cfg-42', status: 'approved', poolUrls: [{ url: 'u', workerName: 'w' }] } })
 
   t.alike(result, { success: true })
   t.is(miner.poolConfig, 'cfg-42')

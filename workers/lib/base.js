@@ -109,6 +109,12 @@ class BaseMiner extends BaseThing {
       let configId
 
       if (params?.config) {
+        // Only accept a stored, approved pool profile as resolved by the ORK.
+        // A caller-crafted inline config carries neither and is refused here
+        // even if it slipped past the ORK's approval check.
+        if (!params.config.id || params.config.status !== 'approved') {
+          throw new Error('ERR_POOL_CONFIG_NOT_APPROVED')
+        }
         poolsToUse = this._transformPoolConfig(params.config)
         configId = params.config.id
       } else {

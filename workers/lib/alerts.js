@@ -39,12 +39,21 @@ function isValidPoolConfigSnap (ctx, snap) {
   )
 }
 
-function isIpPoolUsername (ip, minerPools, confPools) {
-  for (let i = 0; i < confPools.length; i++) {
-    const formattedIP = ip.replace(/\./g, 'x')
-    const username = minerPools[i].username
+// Pool usernames are written as `<worker_name>.<suffix>` (see preProcessPoolData),
+// where the pool credits <worker_name> as the account and <suffix> labels the
+// device. Returns the suffix, or null when the username has none.
+function poolUsernameSuffix (username, workerName) {
+  const prefix = `${workerName}.`
+  if (workerName && username.startsWith(prefix)) return username.slice(prefix.length)
+  const dot = username.indexOf('.')
+  return dot === -1 ? null : username.slice(dot + 1)
+}
 
-    if (!username.includes(formattedIP)) {
+function isIpPoolUsername (ip, minerPools, confPools) {
+  const formattedIP = ip.replace(/\./g, 'x')
+  for (let i = 0; i < confPools.length; i++) {
+    const username = minerPools[i]?.username ?? ''
+    if (poolUsernameSuffix(username, confPools[i].worker_name) !== formattedIP) {
       return false
     }
   }
@@ -53,8 +62,8 @@ function isIpPoolUsername (ip, minerPools, confPools) {
 
 function isCorrectPoolUsername (id, minerPools, confPools) {
   for (let i = 0; i < confPools.length; i++) {
-    const username = minerPools[i].username
-    if (!username.includes(id)) {
+    const username = minerPools[i]?.username ?? ''
+    if (poolUsernameSuffix(username, confPools[i].worker_name) !== id) {
       return false
     }
   }
@@ -64,17 +73,25 @@ function isCorrectPoolUsername (id, minerPools, confPools) {
 function isConfigWorkerNameInPoolUsername (minerPools, confPools) {
   for (let i = 0; i < confPools.length; i++) {
     const workerName = confPools[i].worker_name
-    const username = minerPools[i].username
+    const username = minerPools[i]?.username ?? ''
 
-    if (!username.includes(workerName)) {
+    if (username !== workerName && !username.startsWith(`${workerName}.`)) {
       return false
     }
   }
   return true
 }
 
+// Firmware may echo a pool url back with different case, a trailing slash or
+// without the default scheme, none of which change where the hashrate goes.
+function normalizePoolUrl (url) {
+  if (typeof url !== 'string') return url
+  const trimmed = url.trim().toLowerCase().replace(/\/+$/, '')
+  return trimmed.includes('://') ? trimmed : `stratum+tcp://${trimmed}`
+}
+
 function areMinerPoolsUrlsCorrectlySetup (minerPools, urls) {
-  return urls.every((url, i) => minerPools[i]?.url === url)
+  return urls.every((url, i) => normalizePoolUrl(minerPools[i]?.url) === normalizePoolUrl(url))
 }
 
 function wrongMinerPoolProbe (ctx, snap) {
